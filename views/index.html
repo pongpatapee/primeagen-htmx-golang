@@ -13,13 +13,83 @@
       ></script>
     </head>
     <body>
-      <div id="count">{{ template "count" . }}</div>
-      <button hx-target="#count" hx-post="/count">Count</button>
+      {{ template "form" .FormData }}
+      <hr />
+      {{ template "display" .Data }}
+      <script>
+        document.body.addEventListener("htmx:beforeSwap", function (evt) {
+          if (evt.detail.xhr.status === 404) {
+            // alert the user when a 404 occurs (maybe use a nicer mechanism than alert())
+            alert("Error: Could Not Find Resource");
+          } else if (evt.detail.xhr.status === 422) {
+            // allow 422 responses to swap as we are using this as a signal that
+            // a form was submitted with bad data and want to rerender with the
+            // errors
+            //
+            // set isError to false to avoid error logging in console
+            evt.detail.shouldSwap = true;
+            evt.detail.isError = false;
+          } else if (evt.detail.xhr.status === 418) {
+            // if the response code 418 (I'm a teapot) is returned, retarget the
+            // content of the response to the element with the id `teapot`
+            evt.detail.shouldSwap = true;
+            evt.detail.target = htmx.find("#teapot");
+          }
+        });
+      </script>
     </body>
   </html>
 {{ end }}
 
-{{ block "count" . }}
-  Count
-  {{ .Count }}
+{{ block "form" . }}
+  <!-- TODO: change hx-target -->
+  <form hx-swap="outerHTML" hx-post="/contacts">
+    name:
+    <input
+      type="text"
+      name="name"
+      {{ if .Values.name }}value="{{ .Values.name }}"{{ end }}
+    />
+
+    <br />
+
+    email:
+    <input
+      type="text"
+      name="email"
+      {{ if .Values.email }}value="{{ .Values.email }}"{{ end }}
+    />
+
+    {{ if .Errors.email }}
+      <div style="color: red">
+        {{ .Errors.email }}
+      </div>
+    {{ end }}
+
+
+    <button type="submit">Create Contact</button>
+  </form>
+{{ end }}
+
+{{ block "display" . }}
+  <div id="contacts" style="display: flex; flex-direction: column">
+    {{ range .Contacts }}
+      {{ template "contact" . }}
+    {{ end }}
+  </div>
+{{ end }}
+
+{{ block "contact" . }}
+  <div>
+    Name: <span> {{ .Name }}</span>
+    <br />
+    Email: <span> {{ .Email }}</span>
+  </div>
+  <br />
+{{ end }}
+
+{{ block "oob-contact" . }}
+  <div id="contacts" hx-swap-oob="afterbegin">
+    {{ template "contact" . }}
+  </div>
 {{ end }}
